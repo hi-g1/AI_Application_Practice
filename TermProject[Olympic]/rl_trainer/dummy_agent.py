@@ -53,7 +53,9 @@ RENDER = True
 
 def main(args):
     # build environment
+    print(f"{args.game_name = }")
     env = make(args.game_name)
+    print(f"{env = }")
 
     act_dim = env.action_dim
     obs_dim = 40*40
@@ -79,7 +81,11 @@ def main(args):
 
         while True:
             action_ctrl = agent.get_action(obs_ctrl_agent)  # ctrl action
+            print(f'{obs_ctrl_agent.shape = }')
+            print(f'{action_ctrl = }')
             action_opponent = agent.get_action(obs_oppo_agent)  # opponent action
+            print(f'{obs_oppo_agent.shape = }')
+            print(f'{action_opponent = }')
 
             action = [action_ctrl, action_opponent]
 
