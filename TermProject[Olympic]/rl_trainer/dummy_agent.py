@@ -52,9 +52,8 @@ RENDER = True
 
 
 def main(args):
-    env = make(args.game_name)          #build environment
-
-    num_agents = env.n_player
+    # build environment
+    env = make(args.game_name)
 
     act_dim = env.action_dim
     obs_dim = 40*40
@@ -66,13 +65,14 @@ def main(args):
     num_episode = 0
 
     while num_episode < args.max_episodes:
-        env = make(args.game_name)          #rebuild each time to shuffle the running map
+        # rebuild each time to shuffle the running map
+        env = make(args.game_name)
         state = env.reset()
         if RENDER:
             env.env_core.render()
 
         obs_ctrl_agent = np.array(state[0]['obs']['agent_obs'])
-        obs_oppo_agent = np.array(state[1]['obs']['agent_obs'])   #[25,25]
+        obs_oppo_agent = np.array(state[1]['obs']['agent_obs'])     #[25,25]
 
         num_episode += 1
         step = 0
@@ -98,8 +98,4 @@ def main(args):
 
 if __name__ == '__main__':
     args = parser.parse_args()
-    #args.load_model = True
-    #args.load_run = 3
-    #args.map = 3
-    #args.load_episode= 900
     main(args)
