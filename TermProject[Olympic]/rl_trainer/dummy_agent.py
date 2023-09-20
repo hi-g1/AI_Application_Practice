@@ -19,10 +19,6 @@ class random_agent:
     def __init__(self, seed=None):
         self.force_range = [-100, 200]
         self.angle_range = [-30, 30]
-        #self.seed(seed)
-
-    def seed(self, seed = None):
-        random.seed(seed)
 
     def get_action(self, observation):
         force = random.uniform(self.force_range[0], self.force_range[1])
@@ -74,7 +70,7 @@ def main(args):
             env.env_core.render()
 
         obs_ctrl_agent = np.array(state[0]['obs']['agent_obs'])
-        obs_oppo_agent = np.array(state[1]['obs']['agent_obs'])     #[25,25]
+        obs_oppo_agent = np.array(state[1]['obs']['agent_obs'])
 
         num_episode += 1
         step = 0
@@ -93,8 +89,9 @@ def main(args):
 
             step += 1
 
-            obs_oppo_agent = np.array(state[0]['obs']['agent_obs'])
-            obs_ctrl_agent = np.array(state[1]['obs']['agent_obs'])
+            obs_oppo_agent = np.array(next_state[0]['obs']['agent_obs'])
+            obs_ctrl_agent = np.array(next_state[1]['obs']['agent_obs'])
+
             if RENDER:
                 env.env_core.render()
 
