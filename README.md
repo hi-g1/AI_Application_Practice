@@ -11,8 +11,10 @@ AI Application &amp; Practice, Fall Semester, 2023 – CSE544 in KOREATECH
 - pip install 'gymnasium[accept-rom-license]'
 - optional case in macOS: conda install -c conda-forge gym-box2d
 - pip install wandb
+- pip install matplotlib==3.5.3
 - pip install ipython
 - pip install pandas
+- pip install opencv-python
 - pip install pyvirtualdisplay
 - pip install xvfbwrapper
 - pip install roboschool

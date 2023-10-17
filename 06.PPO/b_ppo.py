@@ -1,5 +1,6 @@
 import time
 
+import matplotlib
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -289,9 +290,9 @@ class PPOAgent(object):
                   f"actor loss {np.mean(self.actor_loss_history[-10:])}", 
                   f"critic loss {np.mean(self.critic_loss_history[-10:])}",
                   ]
-
         clear_output(True)
-        with plt.style.context("seaborn-dark-palette"):
+        print("asdfasdf", plt.style.available)
+        with plt.style.context("seaborn-bright"):
             fig, axes = plt.subplots(3, 1, figsize=(6, 8))
             for i, ax in enumerate(axes):
                 ax.plot(data[i], c="crimson")
