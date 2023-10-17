@@ -7,7 +7,7 @@ import torch.optim as optim
 from torch.distributions import Normal, Categorical
 
 import matplotlib.pyplot as plt
-# matplotlib.use('TkAgg')
+matplotlib.use('Agg')
 from IPython.display import clear_output
 from IPython import display
 import pandas as pd
