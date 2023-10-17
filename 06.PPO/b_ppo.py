@@ -245,13 +245,6 @@ class PPOAgent(object):
             
             # critic loss, uncoment for clipped value loss too.
             cur_value = self.critic(state)
-            #clipped_value = (
-            #    old_value + torch.clamp(cur_value - old_value,
-            #                            -self.value_range, self.value_range)
-            #   )
-            #loss = (return_ - cur_value).pow(2)
-            #clipped_loss = (return_ - clipped_value).pow(2)
-            #critic_loss = torch.mean(torch.max(loss, clipped_loss))
 
             critic_loss = (return_ - cur_value).pow(2).mean()
 
