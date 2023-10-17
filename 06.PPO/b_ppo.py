@@ -1,14 +1,8 @@
 import time
-
-import matplotlib
 import torch
-import torch.nn as nn
 import torch.optim as optim
-from torch.distributions import Normal, Categorical
-
 import matplotlib.pyplot as plt
 from IPython.display import clear_output
-from IPython import display
 import pandas as pd
 import numpy as np
 
@@ -174,24 +168,23 @@ class PPOAgent(object):
 
                 time_step += 1
 
+                total_training_time = time.time() - total_train_start_time
+                total_training_time = time.strftime('%H:%M:%S', time.gmtime(total_training_time))
+                if num_episode % self.print_episode_interval == 0 and print_episode_flag:
+                    print(
+                        "[Episode {:3,}, Steps {:6,}]".format(num_episode, time_step),
+                        "Episode Reward: {:>9.3f},".format(np.mean(episode_reward_list)),
+                        "Elapsed Time: {}".format(total_training_time)
+                    )
+                    print_episode_flag = False
+
             if (step_ % self.plot_interval == 0):
                 self._plot_train_history()
-
-            total_training_time = time.time() - total_train_start_time
-            total_training_time = time.strftime('%H:%M:%S', time.gmtime(total_training_time))
-
-            if num_episode % self.print_episode_interval == 0 and print_episode_flag:
-                print(
-                    "[Episode {:3,}, Steps {:6,}]".format(num_episode, time_step),
-                    "Episode Reward: {:>9.3f},".format(np.mean(episode_reward_list)),
-                    "Elapsed Time: {}".format(total_training_time)
-                )
-                print_episode_flag = False
 
             # if we have achieved the desired score - stop the process.
             if self.solved_reward is not None:
                 if np.mean(self.scores[-10:]) > self.solved_reward:
-                    print("Congratulations, it's solved!")
+                    print("It's solved!")
                     break
 
             value = self.critic(torch.FloatTensor(next_state))
@@ -291,7 +284,6 @@ class PPOAgent(object):
                   f"critic loss {np.mean(self.critic_loss_history[-10:])}",
                   ]
         clear_output(True)
-        print("asdfasdf", plt.style.available)
         with plt.style.context("seaborn-bright"):
             fig, axes = plt.subplots(3, 1, figsize=(6, 8))
             for i, ax in enumerate(axes):

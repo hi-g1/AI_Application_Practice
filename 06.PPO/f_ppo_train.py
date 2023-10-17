@@ -8,14 +8,12 @@ from b_ppo import PPOAgent
 import numpy as np
 import torch
 import random
-import matplotlib.pyplot as plt
 
 import gymnasium as gym
 
 from d_wrappers import (AcrobotActionWrapper,
                         PendulumActionNormalizer,
                         BipedalWalkerRewardWrapper)
-from e_utils import show_video, convert_gif
 import argparse
 from config import args_ppo_pendulum_v1, args_ppo_acrobot_v1, args_ppo_cartpole_v1, args_ppo_lunarlander_continuous_v2, \
     args_ppo_lunarlander_v2, args_ppo_bipedalwalker_v3, args_ppo_mountaincar_continuous_v0

@@ -15,6 +15,3 @@ AI Application &amp; Practice, Fall Semester, 2023 – CSE544 in KOREATECH
 - pip install ipython
 - pip install pandas
 - pip install opencv-python
-- pip install pyvirtualdisplay
-- pip install xvfbwrapper
-- pip install roboschool
