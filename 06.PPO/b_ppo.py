@@ -1,15 +1,8 @@
 import time
-
-import matplotlib
 import torch
-import torch.nn as nn
 import torch.optim as optim
-from torch.distributions import Normal, Categorical
-
 import matplotlib.pyplot as plt
-matplotlib.use('Agg')
 from IPython.display import clear_output
-from IPython import display
 import pandas as pd
 import numpy as np
 
@@ -191,7 +184,7 @@ class PPOAgent(object):
             # if we have achieved the desired score - stop the process.
             if self.solved_reward is not None:
                 if np.mean(self.scores[-10:]) > self.solved_reward:
-                    print("Congratulations, it's solved!")
+                    print("It's solved!")
                     break
 
             value = self.critic(torch.FloatTensor(next_state))
