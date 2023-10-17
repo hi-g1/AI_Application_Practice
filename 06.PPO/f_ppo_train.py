@@ -8,14 +8,12 @@ from b_ppo import PPOAgent
 import numpy as np
 import torch
 import random
-import matplotlib.pyplot as plt
 
 import gymnasium as gym
 
 from d_wrappers import (AcrobotActionWrapper,
                         PendulumActionNormalizer,
                         BipedalWalkerRewardWrapper)
-from e_utils import show_video, convert_gif
 import argparse
 from config import args_ppo_pendulum_v1, args_ppo_acrobot_v1, args_ppo_cartpole_v1, args_ppo_lunarlander_continuous_v2, \
     args_ppo_lunarlander_v2, args_ppo_bipedalwalker_v3, args_ppo_mountaincar_continuous_v0
@@ -66,7 +64,7 @@ def main(args, evaluation=False):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--env_type", default="MountainCarContinuous-v0")
+    parser.add_argument("--env_type", default="CartPole-v1")
     # "CartPole-v1", "Pendulum-v1", "Acrobot-v1", "LunarLanderContinuous-v2"
     # "LunarLander-v2", "BipedalWalker-v3", "MountainCarContinuous-v0"
     args, rest_args = parser.parse_known_args()
