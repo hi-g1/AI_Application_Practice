@@ -106,7 +106,7 @@ class PPOAgent(object):
         self.critic_loss_list = deque(maxlen=30)
         self.ratio_list = deque(maxlen=30)
 
-        if self.wandb_use:
+        if self.wandb_use and not self.is_evaluate:
             now_time = datetime.now().astimezone().strftime('%Y-%m-%d_%H-%M-%S')
             wandb_name = f"{args.env_name}_{now_time}"
             self.wandb = wandb.init(
