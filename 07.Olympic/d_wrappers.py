@@ -204,13 +204,13 @@ class CompetitionOlympicsEnvWrapper(gym.Wrapper):
         if self.sub_game == "olympics-wrestling":
             if done:
                 if not reward_controlled == 100:
-                    reward_controlled = 0
+                    reward_controlled = -100
             reward_shaped = self.wrestling_reward(next_observation[self.controlled_agent_index]['obs']['agent_obs'])
             reward_controlled += reward_shaped
         elif self.sub_game == "olympics-running":
             if done:
                 if not reward_controlled == 100:
-                    reward_controlled = 0
+                    reward_controlled = -100
             reward_shaped = self.running_reward(
                 next_observation[self.controlled_agent_index]['obs']['agent_obs'],
                 next_observation[self.controlled_agent_index]['obs']['energy']
