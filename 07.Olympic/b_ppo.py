@@ -230,8 +230,9 @@ class PPOAgent(object):
             self._update_weights()
             self.num_train += 1
 
-            if self.num_train % self.target_update_interval == 0 and self.smart_competition:
-                self.actor_target = deepcopy(self.actor)
+            if self.smart_competition:
+                if self.num_train % self.target_update_interval == 0:
+                    self.actor_target = deepcopy(self.actor)
 
         self._save_train_history()
         self.env.close()
