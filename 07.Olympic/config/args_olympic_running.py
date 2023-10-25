@@ -47,7 +47,7 @@ def get_args(rest_args):
 
     # other hyperparameters
     parser.add_argument('--rollout_len', type=int, default=4000, help='num t-steps per one rollout')
-    parser.add_argument('--total_rollouts', type=int, default=300, help='num rollouts')
+    parser.add_argument('--total_rollouts', type=int, default=1000, help='num rollouts')
     parser.add_argument('--num_epochs', type=int, default=30,
                         help='num weights updation iteration for one policy update')
     parser.add_argument('--batch_size', type=int, default=128, help='data batch size for weights updating')
@@ -65,7 +65,7 @@ def get_args(rest_args):
     # etc.
     parser.add_argument('--is_evaluate', type=boolean_argument, default=False, help='for evaluation')
     parser.add_argument('--solved_reward', type=int, default=-50, help='desired reward')
-    parser.add_argument('--plot_interval', type=int, default=10, help='interval for plotting train history')
+    parser.add_argument('--plot_interval', type=int, default=1, help='interval for plotting train history')
     parser.add_argument('--print_episode_interval', type=int, default=10, help='interval for printing train history')
 
     # olympic.
