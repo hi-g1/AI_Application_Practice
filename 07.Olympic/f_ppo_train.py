@@ -39,10 +39,7 @@ seed_everything(config.seed)
 def make_env(env_name, agent=None, config=None):
     # environment
     env = make(env_type="olympics-integrated", game_name=env_name)
-    if config.smart_competition:
-        env = CompetitionOlympicsEnvWrapper(env, agent=agent, args=config)
-    else:
-        env = CompetitionOlympicsEnvWrapper(env, args=config)
+    env = CompetitionOlympicsEnvWrapper(env, args=config)
 
     return env
 
@@ -61,9 +58,8 @@ def main(args, evaluation=False):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--env_type", default="olympics-running")
-    # "CartPole-v1", "Pendulum-v1", "Acrobot-v1", "LunarLanderContinuous-v2"
-    # "LunarLander-v2", "BipedalWalker-v3", "MountainCarContinuous-v0"
+    parser.add_argument("--env_type", default="olympics-wrestling")
+    # "olympics-wrestling", "olympics-running"
     args, rest_args = parser.parse_known_args()
     env_name = args.env_type
 
