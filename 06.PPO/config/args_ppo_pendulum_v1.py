@@ -63,7 +63,7 @@ def get_args(rest_args):
     parser.add_argument('--critic_lr', type=float, default=5e-4, help='learning rate for actor optimizer')
 
     # etc.
-    parser.add_argument('--is_evaluate', type=boolean_argument, default=False, help='for evaluation')
+    parser.add_argument('--is_evaluate', type=boolean_argument, default=True, help='for evaluation')
     parser.add_argument('--solved_reward', type=int, default=0, help='desired reward')
     parser.add_argument('--plot_interval', type=int, default=10, help='interval for plotting train history')
     parser.add_argument('--print_episode_interval', type=int, default=10, help='interval for printing train history')
