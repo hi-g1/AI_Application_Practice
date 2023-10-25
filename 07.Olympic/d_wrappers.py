@@ -72,6 +72,9 @@ class CompetitionOlympicsEnvWrapper(gym.Wrapper):
 
         self.device = args.device
 
+        self.frame_skipping = args.frame_skipping
+        self.last_action = None
+
     def _get_normalize_observation(self, observation):
         return observation / 10.0
 
@@ -139,15 +142,16 @@ class CompetitionOlympicsEnvWrapper(gym.Wrapper):
         # 	action[self.controlled_agent_index] = self.goal_line_running_action
         # 	action[1 - self.controlled_agent_index] = action[1 - self.controlled_agent_index]
 
-        ###############################################################################################################
         action_opponent = self.get_action_opponent(self.last_observation_opponent_agent)
         action_controlled = np.expand_dims(action_controlled, axis=1)
         action_opponent = np.expand_dims(action_opponent, axis=1)
         action = [action_opponent, action_controlled] if self.args.controlled_agent_index == 1 else [
             action_controlled, action_opponent]
-        ###############################################################################################################
 
-        next_observation, reward, done, info_before, info_after = self.env.step(action)
+        for i in range(self.frame_skipping):
+            next_observation, reward, done, info_before, info_after = self.env.step(action)
+            if done:
+                break
         # if next_observation[0]['obs']['game_mode'] == 'NEW GAME':
         # 	if list(next_observation[0]['obs']['agent_obs'][-2]) == list(self.wrestling_reset_observation):
         # 		self.sub_game = 'wrestling'
@@ -204,13 +208,17 @@ class CompetitionOlympicsEnvWrapper(gym.Wrapper):
         if self.sub_game == "olympics-wrestling":
             if done:
                 if not reward_controlled == 100:
-                    reward_controlled = -100
+                    reward_controlled = 10
+                else:
+                    reward_controlled = -10
             reward_shaped = self.wrestling_reward(next_observation[self.controlled_agent_index]['obs']['agent_obs'])
             reward_controlled += reward_shaped
         elif self.sub_game == "olympics-running":
             if done:
                 if not reward_controlled == 100:
-                    reward_controlled = -100
+                    reward_controlled = 10
+                else:
+                    reward_controlled = -10
             reward_shaped = self.running_reward(
                 next_observation[self.controlled_agent_index]['obs']['agent_obs'],
                 next_observation[self.controlled_agent_index]['obs']['energy']
@@ -374,7 +382,10 @@ class CompetitionOlympicsEnvWrapper(gym.Wrapper):
             angle = random.uniform(-30, 30)
             opponent_scaled_actions = np.asarray([force, angle])
 
-        return opponent_scaled_actions
+        if self.sub_game == "olympics-wrestling":
+            return opponent_scaled_actions * opponent_random_action_ratio
+        else:
+            return opponent_scaled_actions
 
     def get_scaled_action(self, action):
         clipped_action = np.clip(action, -1.0, 1.0)
