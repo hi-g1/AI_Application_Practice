@@ -64,7 +64,7 @@ def main(args, evaluation=False):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--env_type", default="BipedalWalker-v3")
+    parser.add_argument("--env_type", default="Pendulum-v1")
     # "CartPole-v1", "Pendulum-v1", "Acrobot-v1", "LunarLanderContinuous-v2"
     # "LunarLander-v2", "BipedalWalker-v3", "MountainCarContinuous-v0"
     args, rest_args = parser.parse_known_args()
