@@ -1,3 +1,4 @@
+import os
 import time
 import torch
 import torch.optim as optim
@@ -98,6 +99,8 @@ class PPOAgent(object):
             self.encoder.load_state_dict(torch.load(
                 f"{self.path2save_train_history}/{self.env_name}/{args.load_model_time}/encoder.pth",
                 map_location=self.device))
+
+            print("COMPLETE MODEL LOAD!!!!")
 
         # wandb
         self.wandb_use = args.wandb_use
@@ -361,6 +364,9 @@ class PPOAgent(object):
     def _save_train_history(self):
         """writing model weights and training logs to files."""
         data_time = datetime.now()
+        if not os.path.exists(f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}"):
+            os.makedirs(f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}")
+
         torch.save(self.actor.state_dict(),
                    f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}/actor.pth")
         torch.save(self.critic.state_dict(),
