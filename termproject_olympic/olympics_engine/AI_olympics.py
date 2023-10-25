@@ -100,7 +100,7 @@ class AI_Olympics:
             self.game_pool[selected_game_idx]['game'].max_step = self.max_step
 
         self.current_game = self.game_pool[selected_game_idx]['game']
-        print(f"{self.game_name = }, {self.current_game.game_name = }")
+        # print(f"{self.game_name = }, {self.current_game.game_name = }")
 
         self.game_score = [0,0]
 
