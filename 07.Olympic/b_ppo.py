@@ -45,6 +45,7 @@ class PPOAgent(object):
         Initialization.
         """
         self.device = args.device
+        self.env_name = args.env_name
         print("device:", self.device)
         # self.env = make_env(args.env_name, args)
 
@@ -93,6 +94,18 @@ class PPOAgent(object):
         self.plot_interval = args.plot_interval
         self.print_episode_interval = args.print_episode_interval
         self.path2save_train_history = args.path2save_train_history
+
+        # load model
+        if args.load_model:
+            self.actor.load_state_dict(torch.load(
+                f"{self.path2save_train_history}/{self.env_name}/{args.load_model_time}/actor.pth",
+                map_location=self.device))
+            self.critic.load_state_dict(torch.load(
+                f"{self.path2save_train_history}/{self.env_name}/{args.load_model_time}/critic.pth",
+                map_location=self.device))
+            self.encoder.load_state_dict(torch.load(
+                f"{self.path2save_train_history}/{self.env_name}/{args.load_model_time}/encoder.pth",
+                map_location=self.device))
 
         # wandb
         self.wandb_use = args.wandb_use
@@ -220,7 +233,7 @@ class PPOAgent(object):
             # if we have achieved the desired score - stop the process.
             if self.solved_reward is not None:
                 if np.mean(self.scores[-10:]) > self.solved_reward:
-                    print("It's solved!")
+                    print(f"It's solved! 10 episode reward mean = {np.mean(self.scores[-10:])}")
                     break
 
             next_state = np.array(next_state)
@@ -356,10 +369,13 @@ class PPOAgent(object):
 
     def _save_train_history(self):
         """writing model weights and training logs to files."""
+        data_time = datetime.now()
         torch.save(self.actor.state_dict(),
-                   f"{self.path2save_train_history}/actor.pth")
+                   f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}/actor.pth")
         torch.save(self.critic.state_dict(),
-                   f"{self.path2save_train_history}/critic.pth")
+                   f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}/critic.pth")
+        torch.save(self.encoder.state_dict(),
+                   f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}/encoder.pth")
         
         pd.DataFrame({"actor loss": self.actor_loss_history, 
                       "critic loss": self.critic_loss_history}
