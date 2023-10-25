@@ -68,15 +68,6 @@ class PPOAgent(object):
         self.actor = ContinuousActor(self.encoder, self.device).apply(init_weights).to(self.device)
         self.critic = Critic(self.encoder, self.device).apply(init_weights).to(self.device)
 
-        # actor target for smart competition
-        self.smart_competition = args.smart_competition
-        if self.smart_competition:
-            self.actor_target = deepcopy(self.actor)
-            self.target_update_interval = args.target_update_interval
-            self.env = make_env(args.env_name, agent=self.actor_target, config=args)
-        else:
-            self.env = make_env(args.env_name, config=args)
-
         # agent nets optimizers
         self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=args.actor_lr)
         self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=args.critic_lr)
@@ -107,6 +98,15 @@ class PPOAgent(object):
                 f"{self.path2save_train_history}/{self.env_name}/{args.load_model_time}/encoder.pth",
                 map_location=self.device))
 
+        # actor target for smart competition
+        self.smart_competition = args.smart_competition
+        if self.smart_competition:
+            self.actor_target = deepcopy(self.actor)
+            self.target_update_interval = args.target_update_interval
+            self.env = make_env(args.env_name, agent=self.actor_target, config=args)
+        else:
+            self.env = make_env(args.env_name, config=args)
+
         # wandb
         self.wandb_use = args.wandb_use
         self.train_flag = False
@@ -125,7 +125,6 @@ class PPOAgent(object):
             self.wandb = wandb.init(
                 project=f"{args.env_name}",
                 name=wandb_name,
-                group="not load",
                 save_code=False
             )
 
