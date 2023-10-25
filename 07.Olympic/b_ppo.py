@@ -102,6 +102,8 @@ class PPOAgent(object):
 
             print("COMPLETE MODEL LOAD!!!!")
 
+        self.load_model_time = args.load_model_time
+
         # wandb
         self.wandb_use = args.wandb_use
         self.train_flag = False
@@ -364,15 +366,15 @@ class PPOAgent(object):
     def _save_train_history(self):
         """writing model weights and training logs to files."""
         data_time = datetime.now()
-        if not os.path.exists(f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}"):
-            os.makedirs(f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}")
+        if not os.path.exists(f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}"):
+            os.makedirs(f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}")
 
         torch.save(self.actor.state_dict(),
-                   f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}/actor.pth")
+                   f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}/actor.pth")
         torch.save(self.critic.state_dict(),
-                   f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}/critic.pth")
+                   f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}/critic.pth")
         torch.save(self.encoder.state_dict(),
-                   f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}/encoder.pth")
+                   f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}/encoder.pth")
         
         pd.DataFrame({"actor loss": self.actor_loss_history, 
                       "critic loss": self.critic_loss_history}
@@ -400,8 +402,15 @@ class PPOAgent(object):
                              actor_weights_path: str,
                              critic_weights_path: str):
 
-        self.actor.load_state_dict(torch.load(actor_weights_path))
-        self.critic.load_state_dict(torch.load(critic_weights_path))
+        self.actor.load_state_dict(torch.load(
+            f"{self.path2save_train_history}/{self.env_name}/{self.load_model_time}/actor.pth",
+            map_location=self.device))
+        self.critic.load_state_dict(torch.load(
+            f"{self.path2save_train_history}/{self.env_name}/{self.load_model_time}/critic.pth",
+            map_location=self.device))
+        self.encoder.load_state_dict(torch.load(
+            f"{self.path2save_train_history}/{self.env_name}/{self.load_model_time}/encoder.pth",
+            map_location=self.device))
         print("Predtrain models loaded")
 
     def log_wandb(self):

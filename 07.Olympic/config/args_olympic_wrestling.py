@@ -74,7 +74,7 @@ def get_args(rest_args):
     parser.add_argument('--frame_stack', type=int, default=4, help='frame stack')
     parser.add_argument('--wandb_use', type=boolean_argument, default=False, help='wandb_use')
     parser.add_argument('--load_model', type=boolean_argument, default=False, help='load previous model')
-    parser.add_argument('--load_model_time', type=str, default="10_25_15", help='load previous model time')
+    parser.add_argument('--load_model_time', type=str, default="10_25_15_33", help='month_day_hour_minute')
 
 
     return parser.parse_args(rest_args)
