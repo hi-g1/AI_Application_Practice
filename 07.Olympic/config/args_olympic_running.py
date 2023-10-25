@@ -75,9 +75,9 @@ def get_args(rest_args):
                         help='random action annealing')
     parser.add_argument('--frame_stack', type=int, default=4, help='frame stack')
     parser.add_argument('--wandb_use', type=boolean_argument, default=False, help='wandb_use')
-    parser.add_argument('--target_update_interval', type=int, default=30, help='actor target update interval for smart competition')
-    parser.add_argument('--smart_competition', type=boolean_argument, default=True, help='smart_competition')
-    parser.add_argument('--load_model', type=boolean_argument, default=True, help='load previous model')
+    parser.add_argument('--target_update_interval', type=int, default=10, help='actor target update interval for smart competition')
+    parser.add_argument('--smart_competition', type=boolean_argument, default=False, help='smart_competition')
+    parser.add_argument('--load_model', type=boolean_argument, default=False, help='load previous model')
     parser.add_argument('--load_model_time', type=str, default="10_3_9", help='load previous model time')
 
 

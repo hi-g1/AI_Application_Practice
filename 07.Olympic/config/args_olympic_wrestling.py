@@ -74,11 +74,11 @@ def get_args(rest_args):
     parser.add_argument('--opponent_agent_random_action_ratio', type=str, default='linear(0.5, 0.1, 10000)',
                         help='random action annealing')
     parser.add_argument('--frame_stack', type=int, default=4, help='frame stack')
-    parser.add_argument('--wandb_use', type=boolean_argument, default=True, help='wandb_use')
-    parser.add_argument('--target_update_interval', type=int, default=30, help='actor target update interval for smart competition')
-    parser.add_argument('--smart_competition', type=boolean_argument, default=True, help='smart_competition')
-    parser.add_argument('--load_model', type=boolean_argument, default=True, help='load previous model')
-    parser.add_argument('--load_model_time', type=str, default="...", help='load previous model time')
+    parser.add_argument('--wandb_use', type=boolean_argument, default=False, help='wandb_use')
+    parser.add_argument('--target_update_interval', type=int, default=10, help='actor target update interval for smart competition')
+    parser.add_argument('--smart_competition', type=boolean_argument, default=False, help='smart_competition')
+    parser.add_argument('--load_model', type=boolean_argument, default=False, help='load previous model')
+    parser.add_argument('--load_model_time', type=str, default="10_3_9", help='load previous model time')
 
 
     return parser.parse_args(rest_args)

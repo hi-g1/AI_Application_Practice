@@ -1,8 +1,11 @@
 import os
 import sys
+from pathlib import Path
+project_path = str(Path(__file__).resolve().parent.parent)
 
-# Add ppo module in system path
+# Add ppo module in system path and project path
 sys.path.append("AI_Application_Practice/06.PPO/")
+sys.path.append(project_path)
 
 from b_ppo import PPOAgent
 import numpy as np
