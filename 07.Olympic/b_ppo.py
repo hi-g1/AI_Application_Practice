@@ -383,6 +383,8 @@ class PPOAgent(object):
         pd.DataFrame(
             data=self.scores, columns=["scores"]
             ).to_csv(f"{self.path2save_train_history}/score_logs.csv")
+
+        print(f"MODEL SAVE SUCCESS!!! MODEL_DIRECTORY: {data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}")
         
     def evaluate(self):
         self.is_evaluate = True

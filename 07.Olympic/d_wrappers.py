@@ -19,9 +19,9 @@ class CompetitionOlympicsEnvWrapper(gym.Wrapper):
 
         self.controlled_agent_index = args.controlled_agent_index
 
+        # for frame_stack
         self.frame_stack = args.frame_stack
         assert self.frame_stack > 0 or isinstance(self.frame_stack, int)
-
         self.frames_controlled = deque([], maxlen=self.frame_stack)
         self.frames_opponent = deque([], maxlen=self.frame_stack)
 
@@ -42,7 +42,9 @@ class CompetitionOlympicsEnvWrapper(gym.Wrapper):
             observation[self.controlled_agent_index]['obs']['agent_obs'], axis=0
         )
 
-        # print(observation_controlled_agent, f"{observation_controlled_agent.shape = }")
+        # print(f"{self.sub_game = }")
+        # print(observation_controlled_agent)
+        # print(f"before frame stacking!! {observation_controlled_agent.shape = }")
 
         ######### frame stack #########
         observation_opponent_agent = self.frame_stacking(self.frames_opponent, observation_opponent_agent)
@@ -126,5 +128,3 @@ class CompetitionOlympicsEnvWrapper(gym.Wrapper):
         assert len(frames) == self.frame_stack
         obs = np.concatenate(list(frames), axis=0)
         return obs
-
-
