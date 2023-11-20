@@ -239,10 +239,6 @@ class PPOAgent(object):
             self._update_weights()
             self.num_train += 1
 
-            if self.smart_competition:
-                if self.num_train % self.target_update_interval == 0:
-                    self.actor_target = deepcopy(self.actor)
-
         self._save_train_history()
         self.env.close()
 
@@ -335,7 +331,7 @@ class PPOAgent(object):
 
         actor_wo_entropy_loss = sum(actor_wo_entropy_losses) / len(actor_wo_entropy_losses)
         entropy_loss = sum(entropy_losses) / len(entropy_losses)
-        ration = sum(ratio_list) / len(ratio_list)
+        ratio = sum(ratio_list) / len(ratio_list)
 
         self.actor_loss_history.append(actor_loss)
         self.critic_loss_history.append(critic_loss)
@@ -428,4 +424,3 @@ class PPOAgent(object):
         }
 
         wandb.log(log_dict)
-        

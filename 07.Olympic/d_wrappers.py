@@ -9,8 +9,6 @@ np.set_printoptions(threshold=np.inf, linewidth=np.inf)
 
 
 class CompetitionOlympicsEnvWrapper(gym.Wrapper):
-    metadata = {}
-
     def __init__(self, env, agent=None, args=None):
         super().__init__(env)
 
