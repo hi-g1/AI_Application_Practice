@@ -335,7 +335,7 @@ class PPOAgent(object):
 
         actor_wo_entropy_loss = sum(actor_wo_entropy_losses) / len(actor_wo_entropy_losses)
         entropy_loss = sum(entropy_losses) / len(entropy_losses)
-        ration = sum(ratio_list) / len(ratio_list)
+        ratio = sum(ratio_list) / len(ratio_list)
 
         self.actor_loss_history.append(actor_loss)
         self.critic_loss_history.append(critic_loss)
