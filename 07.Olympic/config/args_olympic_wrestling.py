@@ -75,6 +75,7 @@ def get_args(rest_args):
     parser.add_argument('--wandb_use', type=boolean_argument, default=False, help='wandb_use')
     parser.add_argument('--load_model', type=boolean_argument, default=False, help='load previous model')
     parser.add_argument('--load_model_time', type=str, default="10_25_15_33", help='month_day_hour_minute')
+    parser.add_argument('--period_save_model', type=int, default=50000, help='period_save_model')
 
 
     return parser.parse_args(rest_args)
