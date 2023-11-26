@@ -62,8 +62,7 @@ if __name__ == "__main__":
                 action2 = test_agent.act(obs[1])
                 action = [action1, action2]
 
-            for _ in range(3):
-                obs, reward, done, _, _ = game.step(action)
+            obs, reward, done, _, _ = game.step(action)
             print(f'reward = {reward}')
             # print('obs = ', obs)
             # plt.imshow(obs[0])
