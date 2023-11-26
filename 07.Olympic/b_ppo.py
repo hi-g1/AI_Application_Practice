@@ -87,8 +87,6 @@ class PPOAgent(object):
         self.plot_interval = args.plot_interval
         self.print_episode_interval = args.print_episode_interval
         self.path2save_train_history = args.path2save_train_history
-        self.period_save_model = args.period_save_model
-        self.flag_solved = False
 
         # load model
         if args.load_model:
@@ -228,13 +226,9 @@ class PPOAgent(object):
                 # self._plot_train_history()
                 self.log_wandb()
 
-            if self.time_step % self.period_save_model == 0:
-                self._save_train_history()
-
             # if we have achieved the desired score - stop the process.
             if self.solved_reward is not None:
                 if np.mean(self.scores[-10:]) > self.solved_reward:
-                    self.flag_solved = True
                     print(f"It's solved! 10 episode reward mean = {np.mean(self.scores[-10:])}")
                     break
 
@@ -371,20 +365,12 @@ class PPOAgent(object):
         if not os.path.exists(f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}"):
             os.makedirs(f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}")
 
-        if self.flag_solved:
-            torch.save(self.actor.state_dict(),
-                       f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}/actor_solved.pth")
-            torch.save(self.critic.state_dict(),
-                       f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}/critic_solved.pth")
-            torch.save(self.encoder.state_dict(),
-                       f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}/encoder_solved.pth")
-        else:
-            torch.save(self.actor.state_dict(),
-                       f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}/actor_{self.time_step}.pth")
-            torch.save(self.critic.state_dict(),
-                       f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}/critic_{self.time_step}.pth")
-            torch.save(self.encoder.state_dict(),
-                       f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}/encoder_{self.time_step}.pth")
+        torch.save(self.actor.state_dict(),
+                   f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}/actor.pth")
+        torch.save(self.critic.state_dict(),
+                   f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}/critic.pth")
+        torch.save(self.encoder.state_dict(),
+                   f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}/encoder.pth")
         
         pd.DataFrame({"actor loss": self.actor_loss_history, 
                       "critic loss": self.critic_loss_history}
