@@ -90,15 +90,9 @@ class PPOAgent(object):
 
         # load model
         if args.load_model:
-            self.actor.load_state_dict(torch.load(
-                f"{self.path2save_train_history}/{self.env_name}/{args.load_model_time}/actor.pth",
-                map_location=self.device))
-            self.critic.load_state_dict(torch.load(
-                f"{self.path2save_train_history}/{self.env_name}/{args.load_model_time}/critic.pth",
-                map_location=self.device))
-            self.encoder.load_state_dict(torch.load(
-                f"{self.path2save_train_history}/{self.env_name}/{args.load_model_time}/encoder.pth",
-                map_location=self.device))
+            self.actor.load_state_dict(torch.load(args.load_model_actor_path, map_location=self.device))
+            self.critic.load_state_dict(torch.load(args.load_model_critic_path, map_location=self.device))
+            self.encoder.load_state_dict(torch.load(args.load_model_encoder_path, map_location=self.device))
 
             print("COMPLETE MODEL LOAD!!!!")
 
@@ -229,6 +223,7 @@ class PPOAgent(object):
             # if we have achieved the desired score - stop the process.
             if self.solved_reward is not None:
                 if np.mean(self.scores[-10:]) > self.solved_reward:
+                    self.flag_solved = True
                     print(f"It's solved! 10 episode reward mean = {np.mean(self.scores[-10:])}")
                     break
 
@@ -365,14 +360,22 @@ class PPOAgent(object):
         if not os.path.exists(f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}"):
             os.makedirs(f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}")
 
-        torch.save(self.actor.state_dict(),
-                   f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}/actor.pth")
-        torch.save(self.critic.state_dict(),
-                   f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}/critic.pth")
-        torch.save(self.encoder.state_dict(),
-                   f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}/encoder.pth")
-        
-        pd.DataFrame({"actor loss": self.actor_loss_history, 
+        if self.flag_solved:
+            torch.save(self.actor.state_dict(),
+                       f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}/actor_solved.pth")
+            torch.save(self.critic.state_dict(),
+                       f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}/critic_solved.pth")
+            torch.save(self.encoder.state_dict(),
+                       f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}/encoder_solved.pth")
+        else:
+            torch.save(self.actor.state_dict(),
+                       f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}/actor_{self.time_step}.pth")
+            torch.save(self.critic.state_dict(),
+                       f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}/critic_{self.time_step}.pth")
+            torch.save(self.encoder.state_dict(),
+                       f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}/encoder_{self.time_step}.pth")
+
+        pd.DataFrame({"actor loss": self.actor_loss_history,
                       "critic loss": self.critic_loss_history}
                      ).to_csv(f"{self.path2save_train_history}/loss_logs.csv")
 
@@ -396,19 +399,10 @@ class PPOAgent(object):
 
             self.env.close()
 
-    def load_predtrain_model(self,
-                             actor_weights_path: str,
-                             critic_weights_path: str):
-
-        self.actor.load_state_dict(torch.load(
-            f"{self.path2save_train_history}/{self.env_name}/{self.load_model_time}/actor.pth",
-            map_location=self.device))
-        self.critic.load_state_dict(torch.load(
-            f"{self.path2save_train_history}/{self.env_name}/{self.load_model_time}/critic.pth",
-            map_location=self.device))
-        self.encoder.load_state_dict(torch.load(
-            f"{self.path2save_train_history}/{self.env_name}/{self.load_model_time}/encoder.pth",
-            map_location=self.device))
+    def load_predtrain_model(self, args):
+        self.actor.load_state_dict(torch.load(args.load_model_actor_path, map_location=self.device))
+        self.critic.load_state_dict(torch.load(args.load_model_critic_path, map_location=self.device))
+        self.encoder.load_state_dict(torch.load(args.load_model_encoder_path, map_location=self.device))
         print("Predtrain models loaded")
 
     def log_wandb(self):

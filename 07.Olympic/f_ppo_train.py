@@ -52,7 +52,7 @@ def main(args, evaluation=False):
         agent.train()
     else:
         agent = PPOAgent(make_env, args)
-        agent.load_predtrain_model(f"{args.path2save_train_history}/actor.pth", f"{args.path2save_train_history}/critic.pth")
+        agent.load_predtrain_model(args)
         agent.evaluate()
 
 
