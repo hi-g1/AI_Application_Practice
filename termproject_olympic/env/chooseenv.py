@@ -9,14 +9,12 @@ import os
 
 
 def make(env_type, seed=None, conf=None, game_name="olympic-integrated"):
-    print(f"{env_type = }")
     file_path = os.path.join(os.path.dirname(__file__), 'config.json')
     if not conf:
         with open(file_path) as f:
             conf = json.load(f)[env_type]
     class_literal = conf['class_literal']
     if env_type.split('-')[0] in ["olympics"]:
-        print(f"!!{game_name}")
         return getattr(env, class_literal)(conf, seed, game_name)
     else:
         return getattr(env, class_literal)(conf, game_name)

@@ -9,11 +9,12 @@ import numpy as np
 
 from a_actor_critic import CnnEncoder, ContinuousActor, Critic, init_weights, Memory
 from c_ppo_utils import get_gae, trajectories_data_generator
-        
+
 import wandb
 from datetime import datetime
 from collections import deque
 from copy import deepcopy
+
 
 class PPOAgent(object):
     """PPOAgent.
@@ -41,6 +42,7 @@ class PPOAgent(object):
         plot_interval: plot history log every plot_interval rollouts.
         path2save_train_history: path to save training history logs.
         """
+
     def __init__(self, make_env, args):
         """
         Initialization.
@@ -57,7 +59,18 @@ class PPOAgent(object):
         self.entropy_coef = args.entropy_coef
         self.epsilon = args.epsilon
         self.value_range = args.value_range
-        
+
+        # total_rollouts 80%에 해당하는 rollout 수 계산
+        entropy_coef_decay_rollouts = max(1, int(args.entropy_coef_decay_rollout * args.total_rollouts))
+        self.entropy_coef_decay_rollouts = entropy_coef_decay_rollouts
+        # entropy_coef_decay_step을 직접 계산
+        self.entropy_coef_decay_step = (args.entropy_coef - 0.01) / entropy_coef_decay_rollouts
+
+        # 랭킹 1, 2, 3
+        self.best_models = {'model1': {'reward': float('-inf'), 'actor': None, 'critic': None, 'encoder': None},
+                            'model2': {'reward': float('-inf'), 'actor': None, 'critic': None, 'encoder': None},
+                            'model3': {'reward': float('-inf'), 'actor': None, 'critic': None, 'encoder': None}}
+
         # other hyperparameters
         self.rollout_len = args.rollout_len
         self.total_rollouts = args.total_rollouts
@@ -90,11 +103,19 @@ class PPOAgent(object):
 
         # load model
         if args.load_model:
-            self.actor.load_state_dict(torch.load(args.load_model_actor_path, map_location=self.device))
-            self.critic.load_state_dict(torch.load(args.load_model_critic_path, map_location=self.device))
-            self.encoder.load_state_dict(torch.load(args.load_model_encoder_path, map_location=self.device))
+            self.actor.load_state_dict(torch.load(
+                f"{self.path2save_train_history}/{self.env_name}/{args.load_model_time}/actor.pth",
+                map_location=self.device))
+            self.critic.load_state_dict(torch.load(
+                f"{self.path2save_train_history}/{self.env_name}/{args.load_model_time}/critic.pth",
+                map_location=self.device))
+            self.encoder.load_state_dict(torch.load(
+                f"{self.path2save_train_history}/{self.env_name}/{args.load_model_time}/encoder.pth",
+                map_location=self.device))
 
             print("COMPLETE MODEL LOAD!!!!")
+
+        self.load_model_time = args.load_model_time
 
         # wandb
         self.wandb_use = args.wandb_use
@@ -119,7 +140,7 @@ class PPOAgent(object):
 
     def _get_action(self, state: np.ndarray) -> float:
         """
-        Get action from actor, and if not test -  
+        Get action from actor, and if not test -
         get state value from critic, collect elements of trajectory.
         """
         state = np.array(state)
@@ -131,7 +152,7 @@ class PPOAgent(object):
 
         if not self.is_evaluate:
             value = self.critic(state)
-           
+
             # collect elements of trajectory
             self.memory.states.append(state)
             self.memory.actions.append(action)
@@ -139,14 +160,14 @@ class PPOAgent(object):
             self.memory.values.append(value)
 
         return list(action.detach().cpu().numpy()).pop()
-            
+
     def _step(self, action: float):
         """
         Make action in enviroment chosen by current policy,
         if not evaluate - collect elements of trajectory.
         """
-        #print(action)
-        next_state, reward, terminated, truncated, _ = self.env.step(action)
+        # print(action)
+        next_state, reward, terminated, truncated, _ = self.env.step(action, self.num_episode)
         if any([terminated, truncated]):
             done = True
         else:
@@ -158,7 +179,7 @@ class PPOAgent(object):
         done = np.reshape(done, (1, -1))
 
         if not self.is_evaluate:
-            # convert np.ndarray return from enviroment to torch tensor. 
+            # convert np.ndarray return from enviroment to torch tensor.
             # collect elements of trajectory.
             reward = np.array(reward)
             done_memory = np.array(1 - done)
@@ -210,9 +231,13 @@ class PPOAgent(object):
                     print(
                         "[Episode {:3,}, Steps {:6,}]".format(self.num_episode, self.time_step),
                         "Episode Reward: {:>9.3f},".format(np.mean(np.asarray(self.episode_reward_list))),
+                        f"Entropy_coef: {self.entropy_coef}",
                         "Elapsed Time: {}".format(total_training_time)
                     )
                     print_episode_flag = False
+
+            if step_ < self.total_rollouts * self.entropy_coef_decay_rollouts:
+                self.entropy_coef *= max(np.exp(-self.entropy_coef_decay_step), 0.0002)
 
             if step_ % self.plot_interval == 0 and self.wandb_use and self.train_flag and not self.is_evaluate:
                 # self._plot_train_history()
@@ -221,7 +246,6 @@ class PPOAgent(object):
             # if we have achieved the desired score - stop the process.
             if self.solved_reward is not None:
                 if np.mean(self.scores[-10:]) > self.solved_reward:
-                    self.flag_solved = True
                     print(f"It's solved! 10 episode reward mean = {np.mean(self.scores[-10:])}")
                     break
 
@@ -231,6 +255,9 @@ class PPOAgent(object):
             # update policy
             self._update_weights()
             self.num_train += 1
+
+            if self.num_train % 100 == 0:
+                self._save_train_history()
 
         self._save_train_history()
         self.env.close()
@@ -257,16 +284,15 @@ class PPOAgent(object):
         advantages = returns - values[:-1]
 
         for state, action, return_, old_log_prob, old_value, advantage in trajectories_data_generator(
-            states=states,
-            actions=actions,
-            returns=returns,
-            log_probs=log_probs,
-            values=values,
-            advantages=advantages,
-            batch_size=self.batch_size,
-            num_epochs=self.num_epochs,
-            ):
-
+                states=states,
+                actions=actions,
+                returns=returns,
+                log_probs=log_probs,
+                values=values,
+                advantages=advantages,
+                batch_size=self.batch_size,
+                num_epochs=self.num_epochs,
+        ):
             # compute ratio (pi_theta / pi_theta__old)
             _, dist = self.actor(state)
             cur_log_prob = dist.log_prob(action)
@@ -278,14 +304,14 @@ class PPOAgent(object):
             entropy = dist.entropy().mean()
 
             # compute actor loss
-            loss =  advantage * ratio
+            loss = advantage * ratio
             clipped_loss = (
-                torch.clamp(ratio, 1. - self.epsilon, 1. + self.epsilon)
-                 * advantage
-                )
+                    torch.clamp(ratio, 1. - self.epsilon, 1. + self.epsilon)
+                    * advantage
+            )
             actor_loss = (
-                -torch.mean(torch.min(loss, clipped_loss))
-                - entropy * self.entropy_coef)
+                    -torch.mean(torch.min(loss, clipped_loss))
+                    - entropy * self.entropy_coef)
 
             actor_loss_wo_entropy = -torch.mean(torch.min(loss, clipped_loss))
             entropy_loss = -torch.mean(entropy * self.entropy_coef)
@@ -324,7 +350,7 @@ class PPOAgent(object):
 
         actor_wo_entropy_loss = sum(actor_wo_entropy_losses) / len(actor_wo_entropy_losses)
         entropy_loss = sum(entropy_losses) / len(entropy_losses)
-        ratio = sum(ratio_list) / len(ratio_list)
+        ration = sum(ratio_list) / len(ratio)
 
         self.actor_loss_history.append(actor_loss)
         self.critic_loss_history.append(critic_loss)
@@ -339,7 +365,7 @@ class PPOAgent(object):
     def _plot_train_history(self):
         data = [self.scores, self.actor_loss_history, self.critic_loss_history]
         labels = [f"score {np.mean(self.scores[-10:])}",
-                  f"actor loss {np.mean(self.actor_loss_history[-10:])}", 
+                  f"actor loss {np.mean(self.actor_loss_history[-10:])}",
                   f"critic loss {np.mean(self.critic_loss_history[-10:])}",
                   ]
         clear_output(True)
@@ -355,23 +381,20 @@ class PPOAgent(object):
     def _save_train_history(self):
         """writing model weights and training logs to files."""
         data_time = datetime.now()
-        if not os.path.exists(f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}"):
-            os.makedirs(f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}")
+        if not os.path.exists(
+                f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}"):
+            os.makedirs(
+                f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}")
 
-        if self.flag_solved:
-            torch.save(self.actor.state_dict(),
-                       f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}/actor_solved.pth")
-            torch.save(self.critic.state_dict(),
-                       f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}/critic_solved.pth")
-            torch.save(self.encoder.state_dict(),
-                       f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}/encoder_solved.pth")
-        else:
-            torch.save(self.actor.state_dict(),
-                       f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}/actor_{self.time_step}.pth")
-            torch.save(self.critic.state_dict(),
-                       f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}/critic_{self.time_step}.pth")
-            torch.save(self.encoder.state_dict(),
-                       f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}/encoder_{self.time_step}.pth")
+        torch.save(self.actor.state_dict(),
+                   f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}/actor.pth")
+        torch.save(self.critic.state_dict(),
+                   f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}/critic.pth")
+        torch.save(self.encoder.state_dict(),
+                   f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}/encoder.pth")
+
+        #  Save 랭킹 1, 2, 3
+        self._check_and_save_best_models()
 
         pd.DataFrame({"actor loss": self.actor_loss_history,
                       "critic loss": self.critic_loss_history}
@@ -379,10 +402,35 @@ class PPOAgent(object):
 
         pd.DataFrame(
             data=self.scores, columns=["scores"]
-            ).to_csv(f"{self.path2save_train_history}/score_logs.csv")
+        ).to_csv(f"{self.path2save_train_history}/score_logs.csv")
 
-        print(f"MODEL SAVE SUCCESS!!! MODEL_DIRECTORY: {data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}")
-        
+        print(
+            f"MODEL SAVE SUCCESS!!! MODEL_DIRECTORY: {data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}")
+
+    def _check_and_save_best_models(self):
+        """Save 랭킹 1, 2, 3"""
+        current_reward = np.mean(self.scores[-10:])
+
+        # Update model1
+        if current_reward > self.best_models['model1']['reward']:
+            self._update_best_model('model1', current_reward)
+
+        # Update model2
+        elif current_reward > self.best_models['model2']['reward']:
+            self._update_best_model('model2', current_reward)
+
+        # Update model3
+        elif current_reward > self.best_models['model3']['reward']:
+            self._update_best_model('model3', current_reward)
+
+    def _update_best_model(self, model_name, current_reward):
+        self.best_models[model_name]['reward'] = current_reward
+        self.best_models[model_name]['actor'] = deepcopy(self.actor.state_dict())
+        self.best_models[model_name]['critic'] = deepcopy(self.critic.state_dict())
+        self.best_models[model_name]['encoder'] = deepcopy(self.encoder.state_dict())
+
+        print(f"Model {model_name} updated with reward: {current_reward}")
+
     def evaluate(self):
         self.is_evaluate = True
 
@@ -397,10 +445,19 @@ class PPOAgent(object):
 
             self.env.close()
 
-    def load_predtrain_model(self, args):
-        self.actor.load_state_dict(torch.load(args.load_model_actor_path, map_location=self.device))
-        self.critic.load_state_dict(torch.load(args.load_model_critic_path, map_location=self.device))
-        self.encoder.load_state_dict(torch.load(args.load_model_encoder_path, map_location=self.device))
+    def load_predtrain_model(self,
+                             actor_weights_path: str,
+                             critic_weights_path: str):
+
+        self.actor.load_state_dict(torch.load(
+            f"{self.path2save_train_history}/{self.env_name}/{self.load_model_time}/actor.pth",
+            map_location=self.device))
+        self.critic.load_state_dict(torch.load(
+            f"{self.path2save_train_history}/{self.env_name}/{self.load_model_time}/critic.pth",
+            map_location=self.device))
+        self.encoder.load_state_dict(torch.load(
+            f"{self.path2save_train_history}/{self.env_name}/{self.load_model_time}/encoder.pth",
+            map_location=self.device))
         print("Predtrain models loaded")
 
     def log_wandb(self):
@@ -413,6 +470,9 @@ class PPOAgent(object):
             "Loss/actor_loss": sum(self.actor_loss_list) / len(self.actor_loss_list),
             "Loss/critic_loss": sum(self.critic_loss_list) / len(self.critic_loss_list),
             "Loss/entropy_loss": sum(self.entropy_loss_list) / len(self.entropy_loss_list),
+            "entropy_coef": self.entropy_coef,
         }
 
         wandb.log(log_dict)
+
+

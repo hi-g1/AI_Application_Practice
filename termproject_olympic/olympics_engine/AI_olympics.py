@@ -1,3 +1,5 @@
+import time
+
 from termproject_olympic.olympics_engine.scenario import Running_competition, table_hockey, football, wrestling, curling_competition, billiard_joint, billiard_competition
 import sys, os
 from pathlib import Path
@@ -60,7 +62,6 @@ class AI_Olympics:
         self.wrestling_game.max_step = self.max_step
         # self.curling_game.max_step =
 
-        print(f"{game_name = }")
         self.game_name = game_name
         if game_name == "olympics-integrated":
             self.game_pool = [{"name": 'running-competition', 'game': self.running_game},
@@ -120,7 +121,6 @@ class AI_Olympics:
         return init_obs
 
     def step(self, action_list):
-
         obs, reward, done, _ = self.current_game.step(action_list)
 
         if self.current_game.game_name == 'running-competition':

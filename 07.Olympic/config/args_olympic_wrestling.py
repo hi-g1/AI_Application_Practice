@@ -76,13 +76,13 @@ def get_args(rest_args):
     parser.add_argument('--period_save_model', type=int, default=50000, help='period_save_model')
     parser.add_argument('--load_model', type=boolean_argument, default=False, help='load previous model')
     parser.add_argument('--load_model_actor_path', type=str,
-                        default="/Users/zzzanghun/git/AI_Application_Practice/07.Olympic/train_history/olympics-wrestling/10_25_15/actor.pth",
+                        default="/Users/zzzanghun/git/AI_Application_Practice/olympic/train_history/olympics-wrestling/10_25_15/actor.pth",
                         help='month_day_hour_minute')
     parser.add_argument('--load_model_critic_path', type=str,
-                        default="/Users/zzzanghun/git/AI_Application_Practice/07.Olympic/train_history/olympics-wrestling/10_25_15/.pth",
+                        default="/Users/zzzanghun/git/AI_Application_Practice/olympic/train_history/olympics-wrestling/10_25_15/.pth",
                         help='month_day_hour_minute')
     parser.add_argument('--load_model_encoder_path', type=str,
-                        default="/Users/zzzanghun/git/AI_Application_Practice/07.Olympic/train_history/olympics-wrestling/10_25_15/actor.pth",
+                        default="/Users/zzzanghun/git/AI_Application_Practice/olympic/train_history/olympics-wrestling/10_25_15/actor.pth",
                         help='month_day_hour_minute')
 
 
