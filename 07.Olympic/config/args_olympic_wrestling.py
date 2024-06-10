@@ -67,7 +67,8 @@ def get_args(rest_args):
     parser.add_argument('--solved_reward', type=int, default=-100, help='desired reward')
     parser.add_argument('--plot_interval', type=int, default=1, help='interval for plotting train history')
     parser.add_argument('--print_episode_interval', type=int, default=10, help='interval for printing train history')
-
+    parser.add_argument('--run_number', type=int, default=1, help='run window number')
+    
     # olympic.
     parser.add_argument('--render_over_train', type=boolean_argument, default=False, help='render over train')
     parser.add_argument('--controlled_agent_index', type=int, default=1, help='controlled agent index')

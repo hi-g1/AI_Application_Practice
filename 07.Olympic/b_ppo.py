@@ -13,6 +13,7 @@ from c_ppo_utils import get_gae, trajectories_data_generator
 import wandb
 from datetime import datetime
 from collections import deque
+from pytz import timezone
 from copy import deepcopy
 
 class PPOAgent(object):
@@ -50,6 +51,11 @@ class PPOAgent(object):
         self.env = make_env(args.env_name, config=args)
         print("device:", self.device)
         # self.env = make_env(args.env_name, args)
+        self.start_time = datetime.now(timezone('Asia/Seoul')).strftime("%y%m%d%H%M")
+
+        # wandb log name
+        self.run_number = args.run_number
+        self.save_path_with_time = self.env_name[9:] + '_' + str(self.run_number) + '_' + str(self.start_time[2:])
 
         # coeffs
         self.gamma = args.gamma
@@ -81,6 +87,9 @@ class PPOAgent(object):
         self.actor_loss_history = []
         self.critic_loss_history = []
         self.scores = []
+
+        self.best_score = -10
+        self.best_score_save = False
 
         self.is_evaluate = args.is_evaluate
         self.solved_reward = args.solved_reward
@@ -213,17 +222,34 @@ class PPOAgent(object):
                         "Elapsed Time: {}".format(total_training_time)
                     )
                     print_episode_flag = False
+                
+                if len(self.episode_reward_list) > 0:
+                    if (sum(self.episode_reward_list) / len(self.episode_reward_list)) > self.best_model:
+                        self.best_model = (sum(self.episode_reward_list) / len(self.episode_reward_list))
+                        print("📌 Best model saved!!")
+                        self.best_model_save = True
+                        self._save_train_history()
 
             if step_ % self.plot_interval == 0 and self.wandb_use and self.train_flag and not self.is_evaluate:
                 # self._plot_train_history()
                 self.log_wandb()
 
+            if self.time_step % self.period_save_model == 0:
+                self.step_save = True
+                self._save_train_history()
+
             # if we have achieved the desired score - stop the process.
             if self.solved_reward is not None:
-                if np.mean(self.scores[-10:]) > self.solved_reward:
+                if np.mean(self.scores[-20:]) > self.solved_reward:
                     self.flag_solved = True
-                    print(f"It's solved! 10 episode reward mean = {np.mean(self.scores[-10:])}")
+                    print(f"It's solved! 20 episode reward mean = {np.mean(self.scores[-20:])}")
                     break
+                else:
+                    if np.mean(self.scores[-20:]) > self.best_score:
+                        self.best_score = np.mean(self.scores[-10:])
+                        print("🔥 Best score saved!!")
+                        self.best_score_save = True
+                        self._save_train_history()
 
             next_state = np.array(next_state)
             value = self.critic(torch.FloatTensor(next_state).to(self.device))
@@ -355,34 +381,71 @@ class PPOAgent(object):
     def _save_train_history(self):
         """writing model weights and training logs to files."""
         data_time = datetime.now()
-        if not os.path.exists(f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}"):
-            os.makedirs(f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}")
+        if not os.path.exists(f"{self.path2save_train_history}/{self.env_name}/{self.save_path_with_time}"):
+            os.makedirs(f"{self.path2save_train_history}/{self.env_name}/{self.save_path_with_time}")
 
-        if self.flag_solved:
+        if self.best_score_save == True:
             torch.save(self.actor.state_dict(),
-                       f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}/actor_solved.pth")
+                       f"{self.path2save_train_history}/{self.env_name}/{self.save_path_with_time}/score_actor.pth")
             torch.save(self.critic.state_dict(),
-                       f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}/critic_solved.pth")
+                       f"{self.path2save_train_history}/{self.env_name}/{self.save_path_with_time}/score_critic.pth")
             torch.save(self.encoder.state_dict(),
-                       f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}/encoder_solved.pth")
-        else:
+                       f"{self.path2save_train_history}/{self.env_name}/{self.save_path_with_time}/score_encoder.pth")
+            print(f"MODEL SAVE SUCCESS!!! MODEL_DIRECTORY: {self.save_path_with_time}")
+            pd.DataFrame({"actor loss": self.actor_loss_history,
+                          "critic loss": self.critic_loss_history}
+                         ).to_csv(
+                f"{self.path2save_train_history}/{self.env_name}/{self.save_path_with_time}/score_loss_logs.csv")
+
+            pd.DataFrame(
+                data=self.scores, columns=["scores"]
+            ).to_csv(f"{self.path2save_train_history}/{self.env_name}/{self.save_path_with_time}/score_score_logs.csv")
+            self.best_score_save = False
+
+        if self.best_model_save == True:
             torch.save(self.actor.state_dict(),
-                       f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}/actor_{self.time_step}.pth")
+                       f"{self.path2save_train_history}/{self.env_name}/{self.save_path_with_time}/best_actor.pth")
             torch.save(self.critic.state_dict(),
-                       f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}/critic_{self.time_step}.pth")
+                       f"{self.path2save_train_history}/{self.env_name}/{self.save_path_with_time}/best_critic.pth")
             torch.save(self.encoder.state_dict(),
-                       f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}/encoder_{self.time_step}.pth")
+                       f"{self.path2save_train_history}/{self.env_name}/{self.save_path_with_time}/best_encoder.pth")
+            print(f"MODEL SAVE SUCCESS!!! MODEL_DIRECTORY: {self.save_path_with_time}")
+            pd.DataFrame({"actor loss": self.actor_loss_history,
+                          "critic loss": self.critic_loss_history}
+                         ).to_csv(
+                f"{self.path2save_train_history}/{self.env_name}/{self.save_path_with_time}/best_logs.csv")
 
-        pd.DataFrame({"actor loss": self.actor_loss_history,
-                      "critic loss": self.critic_loss_history}
-                     ).to_csv(f"{self.path2save_train_history}/loss_logs.csv")
+            pd.DataFrame(
+                data=self.scores, columns=["scores"]
+            ).to_csv(f"{self.path2save_train_history}/{self.env_name}/{self.save_path_with_time}/best_score_logs.csv")
+            self.best_model_save = False
+        elif self.flag_solved:
+            torch.save(self.actor.state_dict(),
+                       f"{self.path2save_train_history}/{self.env_name}/{self.save_path_with_time}/{data_time.minute}_actor_solved.pth")
+            torch.save(self.critic.state_dict(),
+                       f"{self.path2save_train_history}/{self.env_name}/{self.save_path_with_time}/{data_time.minute}_critic_solved.pth")
+            torch.save(self.encoder.state_dict(),
+                       f"{self.path2save_train_history}/{self.env_name}/{self.save_path_with_time}/{data_time.minute}_encoder_solved.pth")
+            print(f"MODEL SAVE SUCCESS!!! MODEL_DIRECTORY: {self.save_path_with_time}")
+        elif self.step_save:
+            torch.save(self.actor.state_dict(),
+                       f"{self.path2save_train_history}/{self.env_name}/{self.save_path_with_time}/{self.time_step}_actor.pth")
+            torch.save(self.critic.state_dict(),
+                       f"{self.path2save_train_history}/{self.env_name}/{self.save_path_with_time}/{self.time_step}_critic.pth")
+            torch.save(self.encoder.state_dict(),
+                       f"{self.path2save_train_history}/{self.env_name}/{self.save_path_with_time}/{self.time_step}_encoder.pth")
+            # print(f"MODEL SAVE SUCCESS!!! MODEL_DIRECTORY: {self.save_path_with_time}")
+            self.step_save = False
 
-        pd.DataFrame(
-            data=self.scores, columns=["scores"]
-            ).to_csv(f"{self.path2save_train_history}/score_logs.csv")
+        # pd.DataFrame({"actor loss": self.actor_loss_history,
+        #               "critic loss": self.critic_loss_history}
+        #              ).to_csv(f"{self.path2save_train_history}/{self.env_name}/{self.save_path_with_time}/loss_logs.csv")
+        #
+        # pd.DataFrame(
+        #     data=self.scores, columns=["scores"]
+        #     ).to_csv(f"{self.path2save_train_history}/{self.env_name}/{self.save_path_with_time}/score_logs.csv")
 
-        print(f"MODEL SAVE SUCCESS!!! MODEL_DIRECTORY: {data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}")
-        
+
     def evaluate(self):
         self.is_evaluate = True
 
