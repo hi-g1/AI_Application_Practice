@@ -33,7 +33,7 @@ def get_args(rest_args):
             """
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--env_name', type=str, default='olympics-wrestling', help='name of environment')
+    parser.add_argument('--env_name', type=str, default='olympics-integrated', help='name of environment')
 
     # device
     parser.add_argument('--device', type=str, default='cpu', help='cpu or gpu acelator')
@@ -47,7 +47,7 @@ def get_args(rest_args):
 
     # other hyperparameters
     parser.add_argument('--rollout_len', type=int, default=4000, help='num t-steps per one rollout')
-    parser.add_argument('--total_rollouts', type=int, default=1000, help='num rollouts')
+    parser.add_argument('--total_rollouts', type=int, default=300, help='num rollouts')
     parser.add_argument('--num_epochs', type=int, default=30,
                         help='num weights updation iteration for one policy update')
     parser.add_argument('--batch_size', type=int, default=128, help='data batch size for weights updating')
@@ -64,27 +64,21 @@ def get_args(rest_args):
 
     # etc.
     parser.add_argument('--is_evaluate', type=boolean_argument, default=False, help='for evaluation')
-    parser.add_argument('--solved_reward', type=int, default=-100, help='desired reward')
-    parser.add_argument('--plot_interval', type=int, default=1, help='interval for plotting train history')
+    parser.add_argument('--solved_reward', type=int, default=0, help='desired reward')
+    parser.add_argument('--plot_interval', type=int, default=30, help='interval for plotting train history')
     parser.add_argument('--print_episode_interval', type=int, default=10, help='interval for printing train history')
-    parser.add_argument('--run_number', type=int, default=1, help='run window number')
-    
+
     # olympic.
-    parser.add_argument('--render_over_train', type=boolean_argument, default=False, help='render over train')
+    parser.add_argument('--render_over_train', type=boolean_argument, default=True, help='render over train')
     parser.add_argument('--controlled_agent_index', type=int, default=1, help='controlled agent index')
+    parser.add_argument('--opponent_agent_random_action_ratio', type=str, default='linear(0.5, 0.1, 10000)',
+                        help='random action annealing')
     parser.add_argument('--frame_stack', type=int, default=4, help='frame stack')
-    parser.add_argument('--wandb_use', type=boolean_argument, default=False, help='wandb_use')
-    parser.add_argument('--period_save_model', type=int, default=50000, help='period_save_model')
-    parser.add_argument('--load_model', type=boolean_argument, default=False, help='load previous model')
-    parser.add_argument('--load_model_actor_path', type=str,
-                        default="/Users/zzzanghun/git/AI_Application_Practice/olympic/train_history/olympics-wrestling/10_25_15/actor.pth",
-                        help='month_day_hour_minute')
-    parser.add_argument('--load_model_critic_path', type=str,
-                        default="/Users/zzzanghun/git/AI_Application_Practice/olympic/train_history/olympics-wrestling/10_25_15/.pth",
-                        help='month_day_hour_minute')
-    parser.add_argument('--load_model_encoder_path', type=str,
-                        default="/Users/zzzanghun/git/AI_Application_Practice/olympic/train_history/olympics-wrestling/10_25_15/actor.pth",
-                        help='month_day_hour_minute')
+    parser.add_argument('--wandb_use', type=boolean_argument, default=True, help='wandb_use')
+    parser.add_argument('--target_update_interval', type=int, default=30, help='actor target update interval for smart competition')
+    parser.add_argument('--smart_competition', type=boolean_argument, default=True, help='smart_competition')
+    parser.add_argument('--load_model', type=boolean_argument, default=True, help='load previous model')
+
 
 
     return parser.parse_args(rest_args)

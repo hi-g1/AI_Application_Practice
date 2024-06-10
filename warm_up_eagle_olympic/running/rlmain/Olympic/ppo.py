@@ -1,19 +1,27 @@
 import os
+import sys
 import time
 import torch
+import torch.nn as nn
 import torch.optim as optim
+import torch.nn.functional as F
+from torch.distributions import Normal, Categorical
 import matplotlib.pyplot as plt
 from IPython.display import clear_output
 import pandas as pd
 import numpy as np
 
-from a_actor_critic import CnnEncoder, ContinuousActor, Critic, init_weights, Memory
-from c_ppo_utils import get_gae, trajectories_data_generator
-        
+sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
+
+from utils import get_gae, trajectories_data_generator
+from actor import ContinuousActor
+from critic import Critic
+from memory import Memory
+from actor_utils import init_weights
+
 import wandb
 from datetime import datetime
-from collections import deque
-from pytz import timezone
+from collections import Counter, deque
 from copy import deepcopy
 
 class PPOAgent(object):
@@ -51,11 +59,6 @@ class PPOAgent(object):
         self.env = make_env(args.env_name, config=args)
         print("device:", self.device)
         # self.env = make_env(args.env_name, args)
-        self.start_time = datetime.now(timezone('Asia/Seoul')).strftime("%y%m%d%H%M")
-
-        # wandb log name
-        self.run_number = args.run_number
-        self.save_path_with_time = self.env_name[9:] + '_' + str(self.run_number) + '_' + str(self.start_time[2:])
 
         # coeffs
         self.gamma = args.gamma
@@ -72,9 +75,8 @@ class PPOAgent(object):
 
         # agent nets
         self.obs_dim = args.obs_dim
-        self.encoder = CnnEncoder().apply(init_weights).to(self.device)
-        self.actor = ContinuousActor(self.encoder, self.device).apply(init_weights).to(self.device)
-        self.critic = Critic(self.encoder, self.device).apply(init_weights).to(self.device)
+        self.actor = ContinuousActor(self.device).apply(init_weights).to(self.device)
+        self.critic = Critic(self.device).apply(init_weights).to(self.device)
 
         # agent nets optimizers
         self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=args.actor_lr)
@@ -88,25 +90,24 @@ class PPOAgent(object):
         self.critic_loss_history = []
         self.scores = []
 
-        self.best_score = -10
-        self.best_score_save = False
-
         self.is_evaluate = args.is_evaluate
         self.solved_reward = args.solved_reward
         self.plot_interval = args.plot_interval
         self.print_episode_interval = args.print_episode_interval
         self.path2save_train_history = args.path2save_train_history
-        self.flag_solved = False
-        self.period_save_model = args.period_save_model
-        self.step_save = False
 
         # load model
         if args.load_model:
-            self.actor.load_state_dict(torch.load(args.load_model_actor_path, map_location=self.device))
-            self.critic.load_state_dict(torch.load(args.load_model_critic_path, map_location=self.device))
-            self.encoder.load_state_dict(torch.load(args.load_model_encoder_path, map_location=self.device))
+            self.actor.load_state_dict(torch.load(
+                f"{self.path2save_train_history}/{self.env_name}/{args.load_model_time}/actor.pth",
+                map_location=self.device))
+            self.critic.load_state_dict(torch.load(
+                f"{self.path2save_train_history}/{self.env_name}/{args.load_model_time}/critic.pth",
+                map_location=self.device))
 
             print("COMPLETE MODEL LOAD!!!!")
+
+        self.load_model_time = args.load_model_time
 
         # wandb
         self.wandb_use = args.wandb_use
@@ -129,58 +130,50 @@ class PPOAgent(object):
                 save_code=False
             )
 
-    def _get_action(self, state_me: np.ndarray, state_you: np.ndarray) -> tuple:
-    # def _get_action(self, state_me: np.ndarray) -> float:
-
+    def _get_action(self, state: np.ndarray) -> float:
         """
         Get action from actor, and if not test -  
         get state value from critic, collect elements of trajectory.
         """
-        # print(f"{state = }")
-        state_me = np.array(state_me)
-        state_me = torch.FloatTensor(state_me).to(self.device)
-        state_you = np.array(state_you)
-        state_you = torch.FloatTensor(state_you).to(self.device)
+        state = np.array(state)
+        state = torch.FloatTensor(state).to(self.device)
 
         # print(f"{state.shape = }, {state.dim() = }, *************************")
-        # print(f"{state = }")
-        action_me, dist_me = self.actor(state_me)
-        # print(action_me)
-        if self.copy_on :
-            action_you, dist_you = self.copied_actor(state_you)
-        else:
-            action_you = torch.tensor([[0.0, 0.0]]).to('cuda:0')
+
+        action, dist = self.actor(state)
+        
+        #print("prev : ", action)
+        # action = dist.mean
 
         if not self.is_evaluate:
-            value = self.critic(state_me)
+            value = self.critic(state)
            
             # collect elements of trajectory
-            self.memory.states.append(state_me)
-            self.memory.actions.append(action_me)
-            self.memory.log_probs.append(dist_me.log_prob(action_me))
+            self.memory.states.append(state)
+            self.memory.actions.append(action)
+            self.memory.log_probs.append(dist.log_prob(action))
             self.memory.values.append(value)
+        # else:
+        #     action = dist.mean
+            
+        #print("convert : ", action)
 
-        #return list(action_me.detach().cpu().numpy()).pop()
-        return list(action_me.detach().cpu().numpy()).pop(), list(action_you.detach().cpu().numpy()).pop()
+        return list(action.detach().cpu().numpy()).pop()
             
-            
-    def _step(self, action_me: float, action_you: float):
+    def _step(self, action: float):
         """
         Make action in enviroment chosen by current policy,
         if not evaluate - collect elements of trajectory.
         """
-        # print(action_me)
-        #next_state_me, reward, terminated, truncated, _ = self.env.step(action_me) # 🔥 next_state_you를 만들어야 함
-        next_state_me, reward, terminated, truncated, _, next_state_you = self.env.step(action_me, action_you)
-
+        #print(action)
+        next_state, reward, terminated, truncated, _ = self.env.step(action)
         if any([terminated, truncated]):
             done = True
         else:
             done = False
 
         # add fake dim to match dimension with batch size
-        next_state_me = np.reshape(next_state_me, (1, 4, 40, 40)).astype(np.float64)
-        next_state_you = np.reshape(next_state_you, (1, 4, 40, 40)).astype(np.float64)
+        next_state = np.reshape(next_state, (1, 4, 40, 40)).astype(np.float64)
         reward = np.reshape(reward, (1, -1)).astype(np.float64)
         done = np.reshape(done, (1, -1))
 
@@ -193,8 +186,7 @@ class PPOAgent(object):
             self.memory.rewards.append(torch.FloatTensor(reward).to(self.device))
             self.memory.is_terminals.append(torch.FloatTensor(done_memory).to(self.device))
 
-        # return next_state_me, reward, done
-        return next_state_me, reward, done, next_state_you
+        return next_state, reward, done
 
     def train(self):
         """
@@ -204,11 +196,8 @@ class PPOAgent(object):
         total_train_start_time = time.time()
 
         score = 0
-        # state_me, _ = self.env.reset()
-        state_me, _, state_you = self.env.reset()
-        state_me = np.asarray(state_me)
-        state_you = np.asarray(state_you)
-
+        state, _ = self.env.reset()
+        state = np.asarray(state)
         self.num_episode = 0
         self.time_step = 0
         episode_reward = 0
@@ -216,14 +205,9 @@ class PPOAgent(object):
 
         for step_ in range(self.total_rollouts):
             for _ in range(self.rollout_len):
-                # action_me = self._get_action(state_me)
-                action_me, action_you = self._get_action(state_me, state_you)
-                # next_state_me, reward, done = self._step(action_me)
-                next_state_me, reward, done, next_state_you = self._step(action_me, action_you)
-
-                state_me = next_state_me
-                state_you = next_state_you
-
+                action = self._get_action(state)
+                next_state, reward, done = self._step(action)
+                state = next_state
                 score += reward[0][0]
                 episode_reward += reward[0][0]
 
@@ -232,8 +216,7 @@ class PPOAgent(object):
                 if done[0][0]:
                     self.scores.append(score)
                     score = 0
-                    # state_me, _ = self.env.reset()
-                    state_me, _, state_you = self.env.reset()
+                    state, _ = self.env.reset()
                     self.num_episode += 1
                     self.episode_reward_list.append(episode_reward)
                     episode_reward = 0
@@ -251,37 +234,18 @@ class PPOAgent(object):
                     )
                     print_episode_flag = False
 
-                if len(self.episode_reward_list) > 0:
-                    if (sum(self.episode_reward_list) / len(self.episode_reward_list)) > self.best_model:
-                        self.best_model = (sum(self.episode_reward_list) / len(self.episode_reward_list))
-                        print("📌 Best model saved!!")
-                        self.best_model_save = True
-                        self._save_train_history()
-
             if step_ % self.plot_interval == 0 and self.wandb_use and self.train_flag and not self.is_evaluate:
                 # self._plot_train_history()
                 self.log_wandb()
 
-            if self.time_step % self.period_save_model == 0:
-                self.step_save = True
-                self._save_train_history()
-
             # if we have achieved the desired score - stop the process.
             if self.solved_reward is not None:
-                if np.mean(self.scores[-20:]) > self.solved_reward:
-                    self.flag_solved = True
-                    print(f"It's solved! 20 episode reward mean = {np.mean(self.scores[-20:])}")
+                if np.mean(self.scores[-10:]) > self.solved_reward:
+                    print(f"It's solved! 10 episode reward mean = {np.mean(self.scores[-10:])}")
                     break
-                else:
-                    if np.mean(self.scores[-20:]) > self.best_score:
-                        self.best_score = np.mean(self.scores[-10:])
-                        print("🔥 Best score saved!!")
-                        self.best_score_save = True
-                        self._save_train_history()
 
-
-            next_state_me = np.array(next_state_me)
-            value = self.critic(torch.FloatTensor(next_state_me).to(self.device))
+            next_state = np.array(next_state)
+            value = self.critic(torch.FloatTensor(next_state).to(self.device))
             self.memory.values.append(value)
             # update policy
             self._update_weights()
@@ -360,7 +324,6 @@ class PPOAgent(object):
             self.actor_optimizer.step()
             self.critic_optimizer.step()
 
-
             actor_losses.append(actor_loss.item())
             critic_losses.append(critic_loss.item())
 
@@ -371,16 +334,10 @@ class PPOAgent(object):
             self.entropy_loss_list.append(entropy_loss.item())
             self.critic_loss_list.append(critic_loss.item())
 
-        if self.time_step % 100 == 0:
-            self.copy_on = True
-            self.copied_actor = copy.deepcopy((self.actor))
-            print("🔥🔥🔥 network copied 🔥🔥🔥")
-
         # clean memory of trajectory
         self.memory.clear_memory()
 
         # write mean losses in train history logs
-        # if len(actor_losses) > 0:
         actor_loss = sum(actor_losses) / len(actor_losses)
         critic_loss = sum(critic_losses) / len(critic_losses)
 
@@ -417,71 +374,24 @@ class PPOAgent(object):
     def _save_train_history(self):
         """writing model weights and training logs to files."""
         data_time = datetime.now()
-        if not os.path.exists(f"{self.path2save_train_history}/{self.env_name}/{self.save_path_with_time}"):
-            os.makedirs(f"{self.path2save_train_history}/{self.env_name}/{self.save_path_with_time}")
+        if not os.path.exists(f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}"):
+            os.makedirs(f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}")
 
-        if self.best_score_save == True:
-            torch.save(self.actor.state_dict(),
-                       f"{self.path2save_train_history}/{self.env_name}/{self.save_path_with_time}/score_actor.pth")
-            torch.save(self.critic.state_dict(),
-                       f"{self.path2save_train_history}/{self.env_name}/{self.save_path_with_time}/score_critic.pth")
-            torch.save(self.encoder.state_dict(),
-                       f"{self.path2save_train_history}/{self.env_name}/{self.save_path_with_time}/score_encoder.pth")
-            print(f"MODEL SAVE SUCCESS!!! MODEL_DIRECTORY: {self.save_path_with_time}")
-            pd.DataFrame({"actor loss": self.actor_loss_history,
-                          "critic loss": self.critic_loss_history}
-                         ).to_csv(
-                f"{self.path2save_train_history}/{self.env_name}/{self.save_path_with_time}/score_loss_logs.csv")
+        torch.save(self.actor.state_dict(),
+                   f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}/actor.pth")
+        torch.save(self.critic.state_dict(),
+                   f"{self.path2save_train_history}/{self.env_name}/{data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}/critic.pth")
+        
+        pd.DataFrame({"actor loss": self.actor_loss_history, 
+                      "critic loss": self.critic_loss_history}
+                     ).to_csv(f"{self.path2save_train_history}/loss_logs.csv")
 
-            pd.DataFrame(
-                data=self.scores, columns=["scores"]
-            ).to_csv(f"{self.path2save_train_history}/{self.env_name}/{self.save_path_with_time}/score_score_logs.csv")
-            self.best_score_save = False
+        pd.DataFrame(
+            data=self.scores, columns=["scores"]
+            ).to_csv(f"{self.path2save_train_history}/score_logs.csv")
 
-        if self.best_model_save == True:
-            torch.save(self.actor.state_dict(),
-                       f"{self.path2save_train_history}/{self.env_name}/{self.save_path_with_time}/best_actor.pth")
-            torch.save(self.critic.state_dict(),
-                       f"{self.path2save_train_history}/{self.env_name}/{self.save_path_with_time}/best_critic.pth")
-            torch.save(self.encoder.state_dict(),
-                       f"{self.path2save_train_history}/{self.env_name}/{self.save_path_with_time}/best_encoder.pth")
-            print(f"MODEL SAVE SUCCESS!!! MODEL_DIRECTORY: {self.save_path_with_time}")
-            pd.DataFrame({"actor loss": self.actor_loss_history,
-                          "critic loss": self.critic_loss_history}
-                         ).to_csv(
-                f"{self.path2save_train_history}/{self.env_name}/{self.save_path_with_time}/best_logs.csv")
-
-            pd.DataFrame(
-                data=self.scores, columns=["scores"]
-            ).to_csv(f"{self.path2save_train_history}/{self.env_name}/{self.save_path_with_time}/best_score_logs.csv")
-            self.best_model_save = False
-        elif self.flag_solved:
-            torch.save(self.actor.state_dict(),
-                       f"{self.path2save_train_history}/{self.env_name}/{self.save_path_with_time}/{data_time.minute}_actor_solved.pth")
-            torch.save(self.critic.state_dict(),
-                       f"{self.path2save_train_history}/{self.env_name}/{self.save_path_with_time}/{data_time.minute}_critic_solved.pth")
-            torch.save(self.encoder.state_dict(),
-                       f"{self.path2save_train_history}/{self.env_name}/{self.save_path_with_time}/{data_time.minute}_encoder_solved.pth")
-            print(f"MODEL SAVE SUCCESS!!! MODEL_DIRECTORY: {self.save_path_with_time}")
-        elif self.step_save:
-            torch.save(self.actor.state_dict(),
-                       f"{self.path2save_train_history}/{self.env_name}/{self.save_path_with_time}/{self.time_step}_actor.pth")
-            torch.save(self.critic.state_dict(),
-                       f"{self.path2save_train_history}/{self.env_name}/{self.save_path_with_time}/{self.time_step}_critic.pth")
-            torch.save(self.encoder.state_dict(),
-                       f"{self.path2save_train_history}/{self.env_name}/{self.save_path_with_time}/{self.time_step}_encoder.pth")
-            # print(f"MODEL SAVE SUCCESS!!! MODEL_DIRECTORY: {self.save_path_with_time}")
-            self.step_save = False
-
-        # pd.DataFrame({"actor loss": self.actor_loss_history,
-        #               "critic loss": self.critic_loss_history}
-        #              ).to_csv(f"{self.path2save_train_history}/{self.env_name}/{self.save_path_with_time}/loss_logs.csv")
-        #
-        # pd.DataFrame(
-        #     data=self.scores, columns=["scores"]
-        #     ).to_csv(f"{self.path2save_train_history}/{self.env_name}/{self.save_path_with_time}/score_logs.csv")
-
-
+        print(f"MODEL SAVE SUCCESS!!! MODEL_DIRECTORY: {data_time.month}_{data_time.day}_{data_time.hour}_{data_time.minute}")
+        
     def evaluate(self):
         self.is_evaluate = True
 
@@ -496,10 +406,16 @@ class PPOAgent(object):
 
             self.env.close()
 
-    def load_predtrain_model(self, args):
-        self.actor.load_state_dict(torch.load(args.load_model_actor_path, map_location=self.device))
-        self.critic.load_state_dict(torch.load(args.load_model_critic_path, map_location=self.device))
-        self.encoder.load_state_dict(torch.load(args.load_model_encoder_path, map_location=self.device))
+    def load_predtrain_model(self,
+                             actor_weights_path: str,
+                             critic_weights_path: str):
+
+        self.actor.load_state_dict(torch.load(
+            f"{self.path2save_train_history}/{self.env_name}/{self.load_model_time}/actor.pth",
+            map_location=self.device))
+        self.critic.load_state_dict(torch.load(
+            f"{self.path2save_train_history}/{self.env_name}/{self.load_model_time}/critic.pth",
+            map_location=self.device))
         print("Predtrain models loaded")
 
     def log_wandb(self):
