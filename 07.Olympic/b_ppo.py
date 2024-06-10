@@ -96,6 +96,9 @@ class PPOAgent(object):
         self.plot_interval = args.plot_interval
         self.print_episode_interval = args.print_episode_interval
         self.path2save_train_history = args.path2save_train_history
+        self.flag_solved = False
+        self.period_save_model = args.period_save_model
+        self.step_save = False
 
         # load model
         if args.load_model:
