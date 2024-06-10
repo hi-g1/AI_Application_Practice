@@ -129,43 +129,58 @@ class PPOAgent(object):
                 save_code=False
             )
 
-    def _get_action(self, state: np.ndarray) -> float:
+    def _get_action(self, state_me: np.ndarray, state_you: np.ndarray) -> tuple:
+    # def _get_action(self, state_me: np.ndarray) -> float:
+
         """
         Get action from actor, and if not test -  
         get state value from critic, collect elements of trajectory.
         """
-        state = np.array(state)
-        state = torch.FloatTensor(state).to(self.device)
+        # print(f"{state = }")
+        state_me = np.array(state_me)
+        state_me = torch.FloatTensor(state_me).to(self.device)
+        state_you = np.array(state_you)
+        state_you = torch.FloatTensor(state_you).to(self.device)
 
         # print(f"{state.shape = }, {state.dim() = }, *************************")
-
-        action, dist = self.actor(state)
+        # print(f"{state = }")
+        action_me, dist_me = self.actor(state_me)
+        # print(action_me)
+        if self.copy_on :
+            action_you, dist_you = self.copied_actor(state_you)
+        else:
+            action_you = torch.tensor([[0.0, 0.0]]).to('cuda:0')
 
         if not self.is_evaluate:
-            value = self.critic(state)
+            value = self.critic(state_me)
            
             # collect elements of trajectory
-            self.memory.states.append(state)
-            self.memory.actions.append(action)
-            self.memory.log_probs.append(dist.log_prob(action))
+            self.memory.states.append(state_me)
+            self.memory.actions.append(action_me)
+            self.memory.log_probs.append(dist_me.log_prob(action_me))
             self.memory.values.append(value)
 
-        return list(action.detach().cpu().numpy()).pop()
+        #return list(action_me.detach().cpu().numpy()).pop()
+        return list(action_me.detach().cpu().numpy()).pop(), list(action_you.detach().cpu().numpy()).pop()
             
-    def _step(self, action: float):
+            
+    def _step(self, action_me: float, action_you: float):
         """
         Make action in enviroment chosen by current policy,
         if not evaluate - collect elements of trajectory.
         """
-        #print(action)
-        next_state, reward, terminated, truncated, _ = self.env.step(action)
+        # print(action_me)
+        #next_state_me, reward, terminated, truncated, _ = self.env.step(action_me) # 🔥 next_state_you를 만들어야 함
+        next_state_me, reward, terminated, truncated, _, next_state_you = self.env.step(action_me, action_you)
+
         if any([terminated, truncated]):
             done = True
         else:
             done = False
 
         # add fake dim to match dimension with batch size
-        next_state = np.reshape(next_state, (1, 4, 40, 40)).astype(np.float64)
+        next_state_me = np.reshape(next_state_me, (1, 4, 40, 40)).astype(np.float64)
+        next_state_you = np.reshape(next_state_you, (1, 4, 40, 40)).astype(np.float64)
         reward = np.reshape(reward, (1, -1)).astype(np.float64)
         done = np.reshape(done, (1, -1))
 
@@ -178,7 +193,8 @@ class PPOAgent(object):
             self.memory.rewards.append(torch.FloatTensor(reward).to(self.device))
             self.memory.is_terminals.append(torch.FloatTensor(done_memory).to(self.device))
 
-        return next_state, reward, done
+        # return next_state_me, reward, done
+        return next_state_me, reward, done, next_state_you
 
     def train(self):
         """
@@ -188,8 +204,11 @@ class PPOAgent(object):
         total_train_start_time = time.time()
 
         score = 0
-        state, _ = self.env.reset()
-        state = np.asarray(state)
+        # state_me, _ = self.env.reset()
+        state_me, _, state_you = self.env.reset()
+        state_me = np.asarray(state_me)
+        state_you = np.asarray(state_you)
+
         self.num_episode = 0
         self.time_step = 0
         episode_reward = 0
@@ -197,9 +216,14 @@ class PPOAgent(object):
 
         for step_ in range(self.total_rollouts):
             for _ in range(self.rollout_len):
-                action = self._get_action(state)
-                next_state, reward, done = self._step(action)
-                state = next_state
+                # action_me = self._get_action(state_me)
+                action_me, action_you = self._get_action(state_me, state_you)
+                # next_state_me, reward, done = self._step(action_me)
+                next_state_me, reward, done, next_state_you = self._step(action_me, action_you)
+
+                state_me = next_state_me
+                state_you = next_state_you
+
                 score += reward[0][0]
                 episode_reward += reward[0][0]
 
@@ -208,7 +232,8 @@ class PPOAgent(object):
                 if done[0][0]:
                     self.scores.append(score)
                     score = 0
-                    state, _ = self.env.reset()
+                    # state_me, _ = self.env.reset()
+                    state_me, _, state_you = self.env.reset()
                     self.num_episode += 1
                     self.episode_reward_list.append(episode_reward)
                     episode_reward = 0
@@ -225,7 +250,7 @@ class PPOAgent(object):
                         "Elapsed Time: {}".format(total_training_time)
                     )
                     print_episode_flag = False
-                
+
                 if len(self.episode_reward_list) > 0:
                     if (sum(self.episode_reward_list) / len(self.episode_reward_list)) > self.best_model:
                         self.best_model = (sum(self.episode_reward_list) / len(self.episode_reward_list))
@@ -254,8 +279,9 @@ class PPOAgent(object):
                         self.best_score_save = True
                         self._save_train_history()
 
-            next_state = np.array(next_state)
-            value = self.critic(torch.FloatTensor(next_state).to(self.device))
+
+            next_state_me = np.array(next_state_me)
+            value = self.critic(torch.FloatTensor(next_state_me).to(self.device))
             self.memory.values.append(value)
             # update policy
             self._update_weights()
@@ -334,6 +360,7 @@ class PPOAgent(object):
             self.actor_optimizer.step()
             self.critic_optimizer.step()
 
+
             actor_losses.append(actor_loss.item())
             critic_losses.append(critic_loss.item())
 
@@ -344,10 +371,16 @@ class PPOAgent(object):
             self.entropy_loss_list.append(entropy_loss.item())
             self.critic_loss_list.append(critic_loss.item())
 
+        if self.time_step % 100 == 0:
+            self.copy_on = True
+            self.copied_actor = copy.deepcopy((self.actor))
+            print("🔥🔥🔥 network copied 🔥🔥🔥")
+
         # clean memory of trajectory
         self.memory.clear_memory()
 
         # write mean losses in train history logs
+        # if len(actor_losses) > 0:
         actor_loss = sum(actor_losses) / len(actor_losses)
         critic_loss = sum(critic_losses) / len(critic_losses)
 
